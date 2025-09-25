@@ -1,0 +1,81 @@
+{
+  "name": "RAKSHA - Defense Communication Platform",
+  "short_name": "RAKSHA",
+  "description": "Blockchain-Enabled Secure Defense Communication Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1e40af",
+  "background_color": "#ffffff",
+  "categories": ["security", "communication", "defense"],
+  "lang": "en-IN",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/Ministry_of_Defence_India.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Ministry-of-Defence-resized.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/Ministry-of-Defence-resized.jpg",
+      "sizes": "1280x720",
+      "type": "image/jpeg",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Access main dashboard",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/Ministry_of_Defence_India.svg",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Admin Panel",
+      "short_name": "Admin",
+      "description": "Administrative controls",
+      "url": "/admin",
+      "icons": [
+        {
+          "src": "/Ministry_of_Defence_India.svg",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Security Logs",
+      "short_name": "Logs",
+      "description": "View security logs",
+      "url": "/logs",
+      "icons": [
+        {
+          "src": "/Ministry_of_Defence_India.svg",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  }
+}
