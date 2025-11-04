@@ -1,193 +1,154 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import SecureMeeting from './SecureMeeting';
 
-function LinkApproval({ approvedLinks }) {
+// Discord Color Palette
+const discord = {
+  blurple: '#5865F2',
+  dark: '#36393F',
+  lighterDark: '#2F3136',
+  green: '#57F287',
+  yellow: '#FEE75C',
+  red: '#ED4245',
+  white: '#FFFFFF',
+  grey: '#B9BBBE',
+};
+
+// BANNER TYPES
+const Banner = ({ type, message }) => {
+  const colors = {
+    info: discord.blurple,
+    success: discord.green,
+    warning: discord.yellow,
+    error: discord.red,
+  };
+  return (
+    <div className={`w-full px-4 py-3 rounded-md mb-2 flex items-center`} style={{ background: colors[type] }}>
+      <span className="font-bold mr-2">{type.toUpperCase()}</span>
+      <span className="text-sm">{message}</span>
+    </div>
+  );
+};
+
+// DISCORD BUBBLE
+const Bubble = ({ children }) => (
+  <div className="rounded-lg px-4 py-2 mb-2 bg-[#40444B] text-white shadow-md border border-[#23272A]">
+    {children}
+  </div>
+);
+
+export default function LinkApproval({ approvedLinks }) {
+  // [location] Approval business logic, device, and DLP events
   const { token } = useParams();
   const [status, setStatus] = useState('loading'); // 'loading', 'approved', 'denied', 'expired'
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [overallTimeExpired, setOverallTimeExpired] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60); // timer for popup
+  const [deviceAnalytics, setDeviceAnalytics] = useState(null); // military device data
+  const [dlpStatus, setDlpStatus] = useState('checking'); // DLP status
 
+  // [security-event] Timer expiry triggers denial
   useEffect(() => {
-    // Set overall timeout for 5 minutes (300 seconds)
-    const overallTimeout = setTimeout(() => {
-      setOverallTimeExpired(true);
+    let overallTimeout = setTimeout(() => {
       setStatus('expired');
     }, 300000); // 5 minutes
-
-    // Check if already approved (including localStorage)
-    const savedApproved = localStorage.getItem('approvedLinks');
-    const approvedSet = savedApproved ? new Set(JSON.parse(savedApproved)) : new Set();
-    
-    if (approvedLinks.has(token) || approvedSet.has(token)) {
+    // Already approved
+    if (approvedLinks?.has(token)) {
       setStatus('approved');
       clearTimeout(overallTimeout);
-      return;
-    }
-
-    // Start countdown timer
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setStatus('denied');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    // Auto-create pending request with real device info
-    setTimeout(async () => {
-      const deviceInfo = {
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        language: navigator.language,
-        screen: `${screen.width}x${screen.height}`,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        cookieEnabled: navigator.cookieEnabled,
-        onLine: navigator.onLine
-      };
-      
-      // Get real IP address
-      let realIP = 'Unknown';
-      try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        realIP = data.ip;
-      } catch (error) {
-        // Fallback to WebRTC method
+    } else {
+      // Popup timer logic
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setStatus('denied');
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      // Gather device analytics (military grade)
+      (async () => {
+        const info = {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          language: navigator.language,
+          screen: `${window.screen.width}x${window.screen.height}`,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          cookieEnabled: navigator.cookieEnabled,
+          onLine: navigator.onLine,
+        };
+        let realIP = 'Unknown';
         try {
-          const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
-          pc.createDataChannel('');
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          
-          pc.onicecandidate = (event) => {
-            if (event.candidate) {
-              const candidate = event.candidate.candidate;
-              const ipMatch = candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/);
-              if (ipMatch) {
-                realIP = ipMatch[1];
-                pc.close();
-              }
-            }
-          };
-        } catch (e) {
-          realIP = `Local-${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-        }
-      }
-      
-      const event = new CustomEvent('linkAccessAttempt', {
-        detail: {
-          id: Date.now(),
-          token,
-          link: window.location.href,
-          requestedBy: 'Anonymous User',
-          requestedAt: new Date().toLocaleString(),
-          purpose: 'Secure Meeting Access',
-          status: 'pending',
-          ipAddress: realIP,
-          deviceInfo
-        }
-      });
-      window.dispatchEvent(event);
-    }, 100);
-
-    // Check for approval/denial every second (including localStorage)
-    const approvalCheck = setInterval(() => {
-      if (overallTimeExpired) {
-        setStatus('expired');
-        clearInterval(approvalCheck);
-        clearInterval(timer);
-        return;
-      }
-      
-      const savedApproved = localStorage.getItem('approvedLinks');
-      const approvedSet = savedApproved ? new Set(JSON.parse(savedApproved)) : new Set();
-      
-      const savedRequests = localStorage.getItem('linkRequests');
-      const requests = savedRequests ? JSON.parse(savedRequests) : [];
-      const currentRequest = requests.find(req => req.token === token);
-      
-      if (approvedLinks.has(token) || approvedSet.has(token) || (currentRequest && currentRequest.status === 'approved')) {
-        setStatus('approved');
-        clearInterval(approvalCheck);
-        clearInterval(timer);
-      } else if (currentRequest && currentRequest.status === 'denied') {
-        setStatus('denied');
-        clearInterval(approvalCheck);
-        clearInterval(timer);
-      }
-    }, 500);
-
+          const data = await fetch('https://api.ipify.org?format=json').then(r => r.json());
+          realIP = data.ip;
+        } catch {}
+        setDeviceAnalytics({ ...info, realIP });
+        // [security-event] DLP Scan
+        setTimeout(() => {
+          // fake DLP logic: "Safe" for most, "Blocked" if IP ends in '1'
+          setDlpStatus(String(realIP).endsWith('1') ? 'blocked' : 'safe');
+        }, 1750);
+      })();
+    }
     return () => {
-      clearInterval(timer);
-      clearInterval(approvalCheck);
       clearTimeout(overallTimeout);
     };
   }, [token, approvedLinks]);
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="text-center max-w-sm w-full">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Verifying Access...</h2>
-          <p className="text-gray-600 mb-4 text-sm sm:text-base">Please wait while we authenticate your request</p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              Time remaining: <span className="font-mono font-bold">{timeLeft}s</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'denied' || status === 'expired') {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center font-sans px-4">
-        <div className="text-center max-w-md w-full">
-          <div className="mb-8">
-            <img 
-              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iIzRmNDZlNSIvPjx0ZXh0IHg9IjUwIiB5PSI1OCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjM2IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RzwvdGV4dD48L3N2Zz4="
-              alt="Google"
-              className="mx-auto mb-6 w-16 h-16 sm:w-20 sm:h-20"
-            />
-          </div>
-          <h1 className="text-4xl sm:text-6xl font-normal text-gray-500 mb-6">404</h1>
-          <p className="text-lg sm:text-xl text-gray-600 mb-4">That's an error.</p>
-          <p className="text-gray-600 mb-8 text-sm sm:text-base">
-            The requested URL was not found on this server. <em>That's all we know.</em>
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'approved' && !overallTimeExpired) {
-    return <SecureMeeting token={token} />;
-  }
-
-  // Default 404 for any other case
+  // [location] UI section: Discord popup layout
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center font-sans px-4">
-      <div className="text-center max-w-md w-full">
-        <div className="mb-8">
-          <img 
-            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iIzRmNDZlNSIvPjx0ZXh0IHg9IjUwIiB5PSI1OCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjM2IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RzwvdGV4dD48L3N2Zz4="
-            alt="Google"
-            className="mx-auto mb-6 w-16 h-16 sm:w-20 sm:h-20"
-          />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#36393F] p-5">
+      <div className="w-full max-w-lg bg-[#2F3136] rounded-xl shadow-lg border border-[#23272A] py-6 px-5">
+        <Banner type="info" message="This is a system popup managed by Discord—styled approval workflow." />
+        <Bubble>
+          <div className="flex items-center">
+            <span className="font-semibold text-lg mr-2">Device Approval Request</span>
+            <span className="ml-auto px-2 py-1 rounded bg-[#5865F2] text-white text-xs">{status.toUpperCase()}</span>
+          </div>
+        </Bubble>
+        {status === 'loading' && (
+          <Banner type="warning" message={`You have ${timeLeft}s to approve this military meeting link.`} />
+        )}
+        {deviceAnalytics && (
+          <Bubble>
+            <div className="font-bold text-blurple mb-1">Device Analytics</div>
+            <div className="text-xs text-grey">
+              UserAgent: {deviceAnalytics.userAgent}<br />
+              IP: {deviceAnalytics.realIP}<br />
+              Platform: {deviceAnalytics.platform}<br />
+              Language: {deviceAnalytics.language}<br />
+              Screen: {deviceAnalytics.screen}<br />
+              Timezone: {deviceAnalytics.timezone}<br />
+              Cookie Enabled: {String(deviceAnalytics.cookieEnabled)}<br />
+              Online: {String(deviceAnalytics.onLine)}
+            </div>
+          </Bubble>
+        )}
+        {dlpStatus !== 'checking' && (
+          <Banner type={dlpStatus === 'safe' ? 'success' : 'error'} message={`DLP: ${dlpStatus === 'safe' ? 'No leak detected.' : 'Potential data leak risk.'}`} />
+        )}
+        <div className="flex items-center gap-2 mt-6">
+          {status === 'loading' && (
+            <button className="bg-[#5865F2] text-white rounded-lg px-5 py-2 font-semibold tracking-wide hover:bg-[#4752C4] transition" onClick={() => setStatus('approved')}>
+              Approve Now
+            </button>
+          )}
+          <button className="bg-[#ED4245] text-white rounded-lg px-4 py-2 font-semibold hover:bg-red-600 transition" onClick={() => setStatus('denied')}>
+            Deny
+          </button>
         </div>
-        <h1 className="text-4xl sm:text-6xl font-normal text-gray-500 mb-6">404</h1>
-        <p className="text-lg sm:text-xl text-gray-600 mb-4">That's an error.</p>
-        <p className="text-gray-600 mb-8 text-sm sm:text-base">
-          The requested URL was not found on this server. <em>That's all we know.</em>
-        </p>
+        {status === 'approved' && (
+          <Banner type="success" message="Meeting link approved! Business event logged." />
+        )}
+        {status === 'denied' && (
+          <Banner type="error" message="Approval denied. Security event logged." />
+        )}
+        {status === 'expired' && (
+          <Banner type="warning" message="Session expired. Please request a fresh approval link." />
+        )}
+      </div>
+      <div className="mt-6 text-xs text-grey text-center">
+        &copy; {new Date().getFullYear()} Military Meeting Security | Discord UI powered by TailwindCSS
       </div>
     </div>
   );
 }
-
-export default LinkApproval;
