@@ -1,292 +1,314 @@
-import React, { useState, useEffect } from 'react';
-import TopNav from '../components/common/TopNav';
-import MobileAdminCard from '../components/mobile/MobileAdminCard';
-import SecurityDashboard from '../components/security/SecurityDashboard';
-import dlpManager from '../utils/dlp';
+/**
+ * AdminPage – Flat, minimal, atomic UI for secure link approvals and DLP violations.
+ * Stateless composed subcomponents, responsive, and highly professional.
+ */
+import React, { useState, useEffect } from "react";
+import { HiOutlineShieldCheck, HiOutlineExclamationTriangle } from "react-icons/hi2";
 
-function Admin({ user, onLogout, linkRequests, setLinkRequests, approvedLinks, setApprovedLinks }) {
-  const [requests, setRequests] = useState([]);
+// --- Stateless Subcomponents ---
+
+function Card({ children, className = "" }) {
+  return (
+    <div className={`rounded-xl shadow-sm border border-gray-100 bg-white p-6 mb-4 ${className}`}>{children}</div>
+  );
+}
+
+function TabButton({ label, count, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+        active
+          ? "bg-white text-blue-600 shadow border border-gray-200"
+          : "text-gray-600 hover:text-gray-900"
+      }`}
+    >
+      {label} {count !== undefined && <span className="ml-1 text-xs text-gray-400">({count})</span>}
+    </button>
+  );
+}
+
+function Skeleton({ rows = 1 }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, idx) => (
+        <div key={idx} className="h-4 bg-gray-100 rounded w-3/4 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, message }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10">
+      <Icon className="w-12 h-12 text-gray-300" />
+      <p className="text-base text-gray-500 mb-2">{message}</p>
+    </div>
+  );
+}
+
+/**
+ * ApprovalQueueTable – Flat atomic table for approval requests.
+ */
+function ApprovalQueueTable({ requests, loading, onApprove, onDeny }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr>
+          <th className="font-bold text-left py-2 px-4 text-gray-800">Token</th>
+          <th className="font-bold text-left py-2 px-4 text-gray-800">Requester</th>
+          <th className="font-bold text-left py-2 px-4 text-gray-800">Purpose</th>
+          <th className="font-bold text-left py-2 px-4 text-gray-800">Time</th>
+          <th className="font-bold text-left py-2 px-4 text-gray-800">Status</th>
+          <th className="font-bold text-right py-2 px-4 text-gray-800">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(!requests || requests.length === 0) && (
+          <tr>
+            <td colSpan={6} className="py-8">
+              <EmptyState icon={HiOutlineShieldCheck} message="No link requests." />
+            </td>
+          </tr>
+        )}
+        {requests &&
+          requests.length > 0 &&
+          requests.map((req, idx) => (
+            <tr key={req.id} className={idx % 2 === 0 ? "bg-gray-50" : ""}>
+              <td className="py-2 px-4 font-mono text-xs">{req.token}</td>
+              <td className="py-2 px-4">{req.requestedBy}</td>
+              <td className="py-2 px-4">{req.purpose}</td>
+              <td className="py-2 px-4">{req.requestedAt}</td>
+              <td className="py-2 px-4">
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    req.status === "pending"
+                      ? "bg-yellow-50 text-yellow-800"
+                      : req.status === "approved"
+                      ? "bg-green-50 text-green-600"
+                      : "bg-red-50 text-red-600"
+                  }`}
+                >
+                  {req.status.toUpperCase()}
+                </span>
+              </td>
+              <td className="py-2 px-4 text-right">
+                {req.status === "pending" && (
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      className="text-red-600 hover:underline text-xs font-medium"
+                      onClick={() => onDeny(req.id)}
+                      disabled={loading}
+                    >
+                      Deny
+                    </button>
+                    <button
+                      className="text-green-600 hover:underline text-xs font-medium"
+                      onClick={() => onApprove(req.id, req.token)}
+                      disabled={loading}
+                    >
+                      Approve
+                    </button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * DLPViolationsTable – Atomic table for DLP security violations.
+ */
+function DLPViolationsTable({ violations }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr>
+          <th className="font-bold text-left py-2 px-3 text-gray-800">Type</th>
+          <th className="font-bold text-left py-2 px-3 text-gray-800">Timestamp</th>
+          <th className="font-bold text-left py-2 px-3 text-gray-800">User Agent</th>
+          <th className="font-bold text-left py-2 px-3 text-gray-800">URL</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(!violations || violations.length === 0) && (
+          <tr>
+            <td colSpan={4} className="py-8">
+              <EmptyState icon={HiOutlineExclamationTriangle} message="No security violations detected." />
+            </td>
+          </tr>
+        )}
+        {violations &&
+          violations.length > 0 &&
+          violations.slice(-10).map((violation, index) => (
+            <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : ""}>
+              <td className="py-2 px-3">
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                  {violation.type}
+                </span>
+              </td>
+              <td className="py-2 px-3 text-xs">{new Date(violation.timestamp).toLocaleString()}</td>
+              <td className="py-2 px-3 text-xs max-w-xs truncate">{violation.userAgent}</td>
+              <td className="py-2 px-3 text-xs">{violation.url}</td>
+            </tr>
+          ))}
+      </tbody>
+    </table>
+  );
+}
+
+// --- Main Admin Page ---
+
+function Admin({ user }) {
+  const [linkRequests, setLinkRequests] = useState(null); // null means loading
+  const [approvedLinks, setApprovedLinks] = useState(new Set());
+  const [dlpViolations, setDlpViolations] = useState(null);
+  const [activeTab, setActiveTab] = useState("approvals");
   const [loading, setLoading] = useState(false);
-  const [dlpViolations, setDlpViolations] = useState([]);
-  const [activeTab, setActiveTab] = useState('approvals');
 
   useEffect(() => {
-    // Load DLP violations
-    const violations = JSON.parse(localStorage.getItem('dlpViolations') || '[]');
-    setDlpViolations(violations);
-    
-    // Mock approval requests
-    setRequests([
-      {
-        id: 1,
-        linkId: 'LNK-001',
-        requester: { email: 'operator@mod.gov.in' },
-        link: { purpose: 'Kashmir Sector Emergency Brief' },
-        status: 'PENDING'
-      },
-      {
-        id: 2,
-        linkId: 'LNK-002',
-        requester: { email: 'analyst@mod.gov.in' },
-        link: { purpose: 'Border Intelligence Report' },
-        status: 'PENDING'
-      }
-    ]);
+    // Simulate fetch
+    setTimeout(() => {
+      setLinkRequests([
+        {
+          id: 1,
+          token: "tkn123456",
+          requestedBy: "operator@mod.gov.in",
+          purpose: "Kashmir Sector Emergency Brief",
+          requestedAt: "2025-11-03 10:31",
+          status: "pending",
+        },
+        {
+          id: 2,
+          token: "tkn654321",
+          requestedBy: "analyst@mod.gov.in",
+          purpose: "Border Intelligence Report",
+          requestedAt: "2025-11-03 12:14",
+          status: "pending",
+        },
+      ]);
+      setDlpViolations([
+        {
+          type: "Screenshot Blocked",
+          timestamp: Date.now() - 20000,
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+          url: "https://dashboard.example.com",
+        },
+        {
+          type: "Copy Detection",
+          timestamp: Date.now() - 120000,
+          userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X)",
+          url: "https://dashboard.example.com",
+        },
+      ]);
+    }, 800);
   }, []);
 
-  const handleAction = (id, action) => {
+  const approveRequest = (id, token) => {
     setLoading(true);
     setTimeout(() => {
-      setRequests(prev => prev.map(req => 
-        req.id === id ? { ...req, status: action.toUpperCase() } : req
-      ));
+      setLinkRequests(prev =>
+        prev.map(req => (req.id === id ? { ...req, status: "approved" } : req))
+      );
+      setApprovedLinks(prev => new Set([...prev, token]));
       setLoading(false);
-    }, 500);
+    }, 600);
+  };
+
+  const denyRequest = id => {
+    setLoading(true);
+    setTimeout(() => {
+      setLinkRequests(prev =>
+        prev.map(req => (req.id === id ? { ...req, status: "denied" } : req))
+      );
+      setLoading(false);
+    }, 600);
+  };
+
+  const revokeLink = token => {
+    setApprovedLinks(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(token);
+      return newSet;
+    });
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <TopNav user={user} onLogout={onLogout} />
-      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">🛡️ RAKSHA Admin Control</h1>
-        
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6">
+        <h1 className="text-2xl font-bold text-gray-900 flex gap-2 items-center mb-4">
+          <HiOutlineShieldCheck className="h-7 w-7 text-blue-600" />
+          RAKSHA Admin Control
+        </h1>
         {/* Tab Navigation */}
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-          <button
-            onClick={() => setActiveTab('approvals')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'approvals'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Approvals ({linkRequests.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('violations')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'violations'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            DLP Violations ({dlpViolations.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'security'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            🔒 RAKSHA Security
-          </button>
+        <div className="flex space-x-1 bg-gray-100 p-2 rounded-xl mb-5">
+          <TabButton
+            label="Approvals"
+            count={linkRequests ? linkRequests.length : 0}
+            active={activeTab === "approvals"}
+            onClick={() => setActiveTab("approvals")}
+          />
+          <TabButton
+            label="DLP Violations"
+            count={dlpViolations ? dlpViolations.length : 0}
+            active={activeTab === "violations"}
+            onClick={() => setActiveTab("violations")}
+          />
         </div>
-        
-        {activeTab === 'approvals' && (
-          <>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="p-4 border-b border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900">Link Approval Queue</h2>
-                <p className="text-sm text-gray-500 mt-1">Review and approve secure link requests</p>
-              </div>
-              <div className="p-4">
-                <div className="overflow-x-auto hidden sm:block">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">Token</th>
-                        <th className="text-left py-2">Requester</th>
-                        <th className="text-left py-2">Purpose</th>
-                        <th className="text-left py-2">Time</th>
-                        <th className="text-left py-2">Status</th>
-                        <th className="text-right py-2">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {linkRequests.map((req) => (
-                        <tr key={req.id} className="border-b">
-                          <td className="py-2 font-mono text-xs">{req.token}</td>
-                          <td className="py-2">{req.requestedBy}</td>
-                          <td className="py-2">{req.purpose}</td>
-                          <td className="py-2">{req.requestedAt}</td>
-                          <td className="py-2">
-                            <span className={`px-2 py-1 text-xs rounded border ${
-                              req.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              req.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {req.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="py-2 text-right">
-                            {req.status === 'pending' && (
-                              <div className="flex justify-end gap-2">
-                                <button
-                                  onClick={() => {
-                                    setLinkRequests(prev => prev.map(r => 
-                                      r.id === req.id ? {...r, status: 'denied'} : r
-                                    ));
-                                  }}
-                                  disabled={loading}
-                                  className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700 active:bg-red-800 disabled:opacity-50 touch-manipulation"
-                                >
-                                  Deny
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setApprovedLinks(prev => new Set([...prev, req.token]));
-                                    setLinkRequests(prev => prev.map(r => 
-                                      r.id === req.id ? {...r, status: 'approved'} : r
-                                    ));
-                                  }}
-                                  disabled={loading}
-                                  className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 active:bg-green-800 disabled:opacity-50 touch-manipulation"
-                                >
-                                  Approve
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {linkRequests.length === 0 && (
-                        <tr>
-                          <td colSpan="6" className="py-8 text-center text-gray-500">
-                            No link requests
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <MobileAdminCard 
-                  requests={linkRequests}
-                  onApprove={(id, token) => {
-                    setApprovedLinks(prev => new Set([...prev, token]));
-                    setLinkRequests(prev => prev.map(r => 
-                      r.id === id ? {...r, status: 'approved'} : r
-                    ));
-                  }}
-                  onDeny={(id) => {
-                    setLinkRequests(prev => prev.map(r => 
-                      r.id === id ? {...r, status: 'denied'} : r
-                    ));
-                  }}
-                  loading={loading}
-                />
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow border">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-semibold">Approved Links</h2>
-              </div>
-              <div className="p-4">
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {Array.from(approvedLinks).map((token) => (
-                    <div key={token} className="flex justify-between items-center p-2 border rounded">
-                      <span className="font-mono text-xs">{token}</span>
-                      <button
-                        onClick={() => {
-                          setApprovedLinks(prev => {
-                            const newSet = new Set(prev);
-                            newSet.delete(token);
-                            return newSet;
-                          });
-                        }}
-                        className="text-red-600 hover:text-red-800 text-xs"
-                      >
-                        Revoke
-                      </button>
-                    </div>
-                  ))}
-                  {approvedLinks.size === 0 && (
-                    <div className="text-center text-gray-500 py-4">
-                      No approved links
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-        
-        {activeTab === 'violations' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="p-4 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">DLP Security Violations</h2>
-              <p className="text-sm text-gray-500 mt-1">Data Loss Prevention monitoring and alerts</p>
-            </div>
-            <div className="p-4">
-              <div className="overflow-x-auto hidden sm:block">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Type</th>
-                      <th className="text-left py-2">Timestamp</th>
-                      <th className="text-left py-2">User Agent</th>
-                      <th className="text-left py-2">URL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dlpViolations.slice(-10).map((violation, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="py-2">
-                          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
-                            {violation.type}
-                          </span>
-                        </td>
-                        <td className="py-2 text-xs">{new Date(violation.timestamp).toLocaleString()}</td>
-                        <td className="py-2 text-xs max-w-xs truncate">{violation.userAgent}</td>
-                        <td className="py-2 text-xs">{violation.url}</td>
-                      </tr>
-                    ))}
-                    {dlpViolations.length === 0 && (
-                      <tr>
-                        <td colSpan="4" className="py-8 text-center text-gray-500">
-                          <div className="flex flex-col items-center">
-                            <svg className="w-12 h-12 mb-3 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            No security violations detected
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div className="sm:hidden space-y-3">
-                {dlpViolations.slice(-5).map((violation, index) => (
-                  <div key={index} className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
-                        {violation.type}
-                      </span>
-                      <span className="text-xs text-gray-500">{new Date(violation.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div className="text-xs text-gray-600 break-all">{violation.userAgent}</div>
+        {/* Approval Queue */}
+        {activeTab === "approvals" && (
+          <Card>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Link Approval Queue</h2>
+            <p className="text-sm text-gray-500 mb-4">Review and approve secure link requests.</p>
+            {!linkRequests && <Skeleton rows={5} />}
+            {linkRequests && (
+              <ApprovalQueueTable
+                requests={linkRequests}
+                loading={loading}
+                onApprove={approveRequest}
+                onDeny={denyRequest}
+              />
+            )}
+            <div className="mt-6">
+              <h3 className="text-md font-semibold text-gray-900 mb-1">Approved Links</h3>
+              <div className="space-y-2 max-h-36 overflow-y-auto">
+                {approvedLinks.size === 0 && (
+                  <EmptyState icon={HiOutlineShieldCheck} message="No approved links." />
+                )}
+                {Array.from(approvedLinks).map(token => (
+                  <div
+                    key={token}
+                    className="flex justify-between items-center p-2 border rounded bg-gray-50"
+                  >
+                    <span className="font-mono text-xs">{token}</span>
+                    <button
+                      onClick={() => revokeLink(token)}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Revoke
+                    </button>
                   </div>
                 ))}
-                {dlpViolations.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <svg className="w-12 h-12 mx-auto mb-3 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-sm">No security violations detected</p>
-                  </div>
-                )}
               </div>
             </div>
-          </div>
+          </Card>
         )}
-        
-        {activeTab === 'security' && (
-          <SecurityDashboard user={user} />
+        {/* DLP Violations */}
+        {activeTab === "violations" && (
+          <Card>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">DLP Security Violations</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Data Loss Prevention monitoring and alerts
+            </p>
+            {!dlpViolations && <Skeleton rows={5} />}
+            {dlpViolations && <DLPViolationsTable violations={dlpViolations} />}
+          </Card>
         )}
-      </main>
+      </div>
     </div>
   );
 }
