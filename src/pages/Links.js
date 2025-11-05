@@ -8,7 +8,7 @@ import {
   HiOutlineDeviceMobile,
   HiOutlineGlobeAlt,
   HiOutlineCheckBadge,
-} from "react-icons/hi2";
+} from "react-icons/hi";
 
 // --- Stateless UI Subcomponents ---
 
@@ -62,148 +62,156 @@ function ApprovalRequestsTable({ requests, loading, onApprove, onDeny, getDevice
             </td>
           </tr>
         )}
-        {requests &&
-          requests.length > 0 &&
-          requests.map((req, idx) => (
-            <tr key={req.id || idx} className={idx % 2 === 0 ? "bg-gray-50" : ""}>
-              <td className="py-2 px-4 font-mono text-xs">{req.token}</td>
-              <td className="py-2 px-4">{req.ipAddress || "N/A"}</td>
-              <td className="py-2 px-4 flex items-center gap-2">
-                <HiOutlineDeviceMobile className="h-4 w-4 text-gray-400" />
-                {getDeviceType && getDeviceType(req.deviceInfo)}
+        {requests && requests.length > 0 && (
+          requests.map((req) => (
+            <tr key={req.id} className="border-t border-gray-100 hover:bg-gray-50">
+              <td className="py-3 px-4 text-gray-700 font-mono text-xs">
+                {req.token.slice(0, 8)}...{req.token.slice(-4)}
               </td>
-              <td className="py-2 px-4">
-                <HiOutlineGlobeAlt className="h-4 w-4 text-gray-400 inline mr-1" />
-                {getBrowser && getBrowser(req.deviceInfo?.userAgent)}
-              </td>
-              <td className="py-2 px-4">{req.requestedAt}</td>
-              <td className="py-2 px-4">
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    req.status === "pending"
-                      ? "bg-yellow-50 text-yellow-800"
-                      : req.status === "approved"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-red-50 text-red-600"
-                  }`}
-                >
-                  {req.status?.toUpperCase()}
+              <td className="py-3 px-4 text-gray-700">{req.ipAddress}</td>
+              <td className="py-3 px-4 text-gray-700">
+                <span className="flex items-center gap-1">
+                  <HiOutlineDeviceMobile className="w-4 h-4 text-gray-400" />
+                  {getDeviceType(req.userAgent)}
                 </span>
               </td>
-              <td className="py-2 px-4 text-right">
+              <td className="py-3 px-4 text-gray-700">
+                <span className="flex items-center gap-1">
+                  <HiOutlineGlobeAlt className="w-4 h-4 text-gray-400" />
+                  {getBrowser(req.userAgent)}
+                </span>
+              </td>
+              <td className="py-3 px-4 text-gray-600 text-xs">{new Date(req.timestamp).toLocaleString()}</td>
+              <td className="py-3 px-4">
+                {req.status === "approved" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium">
+                    <HiOutlineCheckBadge className="w-4 h-4" />
+                    Approved
+                  </span>
+                )}
+                {req.status === "denied" && (
+                  <span className="px-2 py-1 rounded-full bg-red-50 text-red-700 text-xs font-medium">
+                    Denied
+                  </span>
+                )}
                 {req.status === "pending" && (
-                  <div className="flex gap-2 justify-end">
+                  <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+                    Pending
+                  </span>
+                )}
+              </td>
+              <td className="py-3 px-4 text-right space-x-2">
+                {req.status === "pending" && (
+                  <>
                     <button
-                      className="text-red-600 hover:underline text-xs font-medium"
-                      onClick={() => onDeny(req.id)}
                       disabled={loading}
-                    >
-                      Deny
-                    </button>
-                    <button
-                      className="text-green-600 hover:underline text-xs font-medium"
                       onClick={() => onApprove(req.id, req.token)}
-                      disabled={loading}
+                      className="px-3 py-1 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                     >
                       Approve
                     </button>
-                  </div>
+                    <button
+                      disabled={loading}
+                      onClick={() => onDeny(req.id)}
+                      className="px-3 py-1 text-xs font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                    >
+                      Deny
+                    </button>
+                  </>
                 )}
               </td>
             </tr>
-          ))}
+          ))
+        )}
       </tbody>
     </table>
   );
 }
 
 /**
- * ApprovedLinksList – Flat atomic container for approved links.
+ * ApprovedLinksList – Atomic list of approved link tokens with revoke capability.
  */
 function ApprovedLinksList({ links, onRevoke }) {
   return (
-    <div className="space-y-2 max-h-36 overflow-y-auto">
+    <div>
       {(!links || links.length === 0) && (
-        <EmptyState icon={HiOutlineCheckBadge} message="No approved links." />
+        <EmptyState icon={HiOutlineCheckBadge} message="No approved links yet." />
       )}
-      {links &&
-        links.length > 0 &&
-        links.map(token => (
-          <div key={token} className="flex justify-between items-center p-2 border rounded bg-gray-50">
-            <span className="font-mono text-xs">{token}</span>
-            <button
-              onClick={() => onRevoke(token)}
-              className="text-red-600 hover:text-red-800 text-xs"
-            >
-              Revoke
-            </button>
-          </div>
-        ))}
+      {links && links.length > 0 && (
+        <ul className="space-y-2">
+          {links.map((token, idx) => (
+            <li key={idx} className="flex items-center justify-between py-2 px-3 border border-gray-200 rounded-lg bg-gray-50">
+              <span className="text-sm text-gray-700 font-mono">
+                {token.slice(0, 8)}...{token.slice(-4)}
+              </span>
+              <button
+                onClick={() => onRevoke(token)}
+                className="text-xs text-red-600 hover:text-red-700 font-medium"
+              >
+                Revoke
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-// --- Main Links Page ---
-
-function Links({ user }) {
+/**
+ * LinksPage – Main component.
+ * Purely atomic, minimal logic, stateful for dynamic device requests.
+ */
+function Links() {
+  // State
   const [linkRequests, setLinkRequests] = useState(null);
   const [approvedLinks, setApprovedLinks] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Load mock data on mount (in production, replace with real API calls)
   useEffect(() => {
-    // Simulate fetch
     setTimeout(() => {
       setLinkRequests([
         {
           id: 1,
-          token: "tkn999111",
-          ipAddress: "172.16.1.15",
-          deviceInfo: {
-            userAgent: "Mozilla/5.0 (Windows NT 10.0)",
-            platform: "Windows",
-          },
-          requestedAt: "2025-11-04 13:14",
+          token: "a1b2c3d4e5f6g7h8i9j0",
+          ipAddress: "192.168.1.10",
+          userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
+          timestamp: Date.now() - 120000,
           status: "pending",
         },
         {
           id: 2,
-          token: "tkn888222",
-          ipAddress: "10.10.10.10",
-          deviceInfo: {
-            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X)",
-            platform: "Mac",
-          },
-          requestedAt: "2025-11-04 14:22",
+          token: "z9y8x7w6v5u4t3s2r1q0",
+          ipAddress: "192.168.1.11",
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          timestamp: Date.now() - 300000,
           status: "approved",
         },
+        {
+          id: 3,
+          token: "m1n2o3p4q5r6s7t8u9v0",
+          ipAddress: "192.168.1.12",
+          userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+          timestamp: Date.now() - 600000,
+          status: "denied",
+        },
       ]);
-      setApprovedLinks(["tkn888222"]);
-    }, 700);
+    }, 800);
   }, []);
 
-  // Device types
-  const getDeviceType = deviceInfo => {
-    if (!deviceInfo) return "Unknown";
-    const ua = deviceInfo.userAgent;
-    const platform = deviceInfo.platform;
-    if (/iPhone/.test(ua)) return "iPhone";
-    if (/iPad/.test(ua)) return "iPad";
-    if (/Android/.test(ua)) return "Android";
-    if (/Windows NT 10/.test(ua)) return "Windows 10";
-    if (/Windows NT/.test(ua)) return "Windows PC";
-    if (/Mac OS X/.test(ua)) return "macOS";
-    if (/Linux/.test(ua)) return "Linux";
-    if (platform) return platform;
-    return "Unknown";
+  // Minimal device / browser helpers (atomic)
+  const getDeviceType = (ua) => {
+    if (/Mobi|Android|iPhone|iPad/i.test(ua)) return "Mobile";
+    if (/Tablet|iPad/i.test(ua)) return "Tablet";
+    return "Desktop";
   };
-  const getBrowser = userAgent => {
-    if (!userAgent) return "Unknown";
-    if (/Edg/.test(userAgent)) return "Edge";
-    if (/Chrome/.test(userAgent) && !/Edg/.test(userAgent)) return "Chrome";
-    if (/Firefox/.test(userAgent)) return "Firefox";
-    if (/Safari/.test(userAgent) && !/Chrome/.test(userAgent)) return "Safari";
-    if (/Opera/.test(userAgent)) return "Opera";
-    return "Unknown";
+  const getBrowser = (ua) => {
+    if (/Chrome/i.test(ua)) return "Chrome";
+    if (/Firefox/i.test(ua)) return "Firefox";
+    if (/Safari/i.test(ua)) return "Safari";
+    if (/Edge/i.test(ua)) return "Edge";
+    return "Other";
   };
 
   // Actions
@@ -219,6 +227,7 @@ function Links({ user }) {
       setLoading(false);
     }, 600);
   };
+
   const denyRequest = id => {
     setLoading(true);
     setTimeout(() => {
@@ -230,6 +239,7 @@ function Links({ user }) {
       setLoading(false);
     }, 600);
   };
+
   const revokeLink = token => {
     setApprovedLinks(prev => prev.filter(t => t !== token));
   };
@@ -242,6 +252,7 @@ function Links({ user }) {
           Link Management
         </h1>
         <div className="mb-6 text-gray-500">Monitor device access and security events.</div>
+
         <Card>
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Link Access Requests</h2>
           <p className="text-sm text-gray-500 mb-4">Track and manage device-specific events and approvals.</p>
@@ -257,6 +268,7 @@ function Links({ user }) {
             />
           )}
         </Card>
+
         <Card>
           <h3 className="text-md font-semibold text-gray-900 mb-2">Approved Links</h3>
           <ApprovedLinksList links={approvedLinks} onRevoke={revokeLink} />
