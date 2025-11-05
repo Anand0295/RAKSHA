@@ -3,10 +3,8 @@
  * Pure presentational structure with testable props subcomponents.
  */
 import React, { useState, useEffect } from "react";
-import { HiOutlineDocumentSearch, HiCheckBadge, HiOutlineArrowDownTray } from "react-icons/hi2"; // Heroicons
-
+import { HiOutlineDocumentSearch, HiCheckBadge, HiOutlineArrowDownTray } from "react-icons/hi"; // Heroicons
 // --- Stateless Atomic UI Subcomponents ---
-
 /**
  * TableSkeleton – Shows a loading skeleton for table rows.
  */
@@ -25,7 +23,6 @@ function TableSkeleton({ rows = 6, cols = 7 }) {
     </tbody>
   );
 }
-
 /**
  * Toast – Shows feedback after CSV download or other actions (dismisses automatically).
  */
@@ -43,7 +40,6 @@ function Toast({ message, show, onClose }) {
     </div>
   );
 }
-
 /**
  * EmptyState – Shows empty icon, message, and a text-action.
  */
@@ -67,7 +63,6 @@ function EmptyState({ icon: Icon, message, actionLabel, action }) {
     </tr>
   );
 }
-
 /**
  * LogsTableRow – Stateless presentational row for logs.
  */
@@ -77,7 +72,7 @@ function LogsTableRow({ log, idx }) {
       ? "bg-red-50 text-red-700"
       : "bg-gray-100 text-gray-700";
   return (
-    <tr className={idx % 2 === 0 ? "bg-gray-50" : ""}>
+    <tr className={idx % 2 === 0 ? "" : "bg-gray-50"}>
       <td className="py-3 px-4 font-mono text-xs text-gray-600">
         EVT-{log.id}
       </td>
@@ -94,13 +89,10 @@ function LogsTableRow({ log, idx }) {
     </tr>
   );
 }
-
 // --- Main Page Component ---
-
 function Logs({ user }) {
   const [logs, setLogs] = useState(null); // null = loading, [] = loaded empty
   const [toast, setToast] = useState(false);
-
   // Simulate fetch on mount
   useEffect(() => {
     setTimeout(() => {
@@ -135,7 +127,6 @@ function Logs({ user }) {
       ]);
     }, 900);
   }, []);
-
   // CSV Export
   const downloadCSV = () => {
     if (!logs || logs.length === 0) return;
@@ -173,12 +164,11 @@ function Logs({ user }) {
     window.URL.revokeObjectURL(url);
     setToast(true);
   };
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
       <h1 className="text-2xl font-bold mb-1 text-gray-900 flex items-center gap-2">
         <HiOutlineDocumentSearch className="h-6 w-6 text-blue-600" />
-        Logs & Reports
+        Logs &amp; Reports
       </h1>
       <p className="text-gray-500 mb-6 text-sm">
         Security monitoring and audit trail for your organization.
@@ -238,5 +228,4 @@ function Logs({ user }) {
     </div>
   );
 }
-
 export default Logs;
