@@ -3,16 +3,13 @@
  * Stateless composed subcomponents, responsive, and highly professional.
  */
 import React, { useState, useEffect } from "react";
-import { HiOutlineShieldCheck, HiOutlineExclamationTriangle } from "react-icons/hi2";
-
+import { HiOutlineShieldCheck, HiOutlineExclamationTriangle } from "react-icons/hi";
 // --- Stateless Subcomponents ---
-
 function Card({ children, className = "" }) {
   return (
     <div className={`rounded-xl shadow-sm border border-gray-100 bg-white p-6 mb-4 ${className}`}>{children}</div>
   );
 }
-
 function TabButton({ label, count, active, onClick }) {
   return (
     <button
@@ -28,7 +25,6 @@ function TabButton({ label, count, active, onClick }) {
     </button>
   );
 }
-
 function Skeleton({ rows = 1 }) {
   return (
     <div className="space-y-3">
@@ -38,7 +34,6 @@ function Skeleton({ rows = 1 }) {
     </div>
   );
 }
-
 function EmptyState({ icon: Icon, message }) {
   return (
     <div className="flex flex-col items-center gap-3 py-10">
@@ -47,7 +42,6 @@ function EmptyState({ icon: Icon, message }) {
     </div>
   );
 }
-
 /**
  * ApprovalQueueTable – Flat atomic table for approval requests.
  */
@@ -75,7 +69,7 @@ function ApprovalQueueTable({ requests, loading, onApprove, onDeny }) {
         {requests &&
           requests.length > 0 &&
           requests.map((req, idx) => (
-            <tr key={req.id} className={idx % 2 === 0 ? "bg-gray-50" : ""}>
+            <tr key={req.id} className={idx % 2 === 0 ? "" : ""}>
               <td className="py-2 px-4 font-mono text-xs">{req.token}</td>
               <td className="py-2 px-4">{req.requestedBy}</td>
               <td className="py-2 px-4">{req.purpose}</td>
@@ -119,7 +113,6 @@ function ApprovalQueueTable({ requests, loading, onApprove, onDeny }) {
     </table>
   );
 }
-
 /**
  * DLPViolationsTable – Atomic table for DLP security violations.
  */
@@ -145,7 +138,7 @@ function DLPViolationsTable({ violations }) {
         {violations &&
           violations.length > 0 &&
           violations.slice(-10).map((violation, index) => (
-            <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : ""}>
+            <tr key={index} className={index % 2 === 0 ? "" : ""}>
               <td className="py-2 px-3">
                 <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
                   {violation.type}
@@ -160,16 +153,13 @@ function DLPViolationsTable({ violations }) {
     </table>
   );
 }
-
 // --- Main Admin Page ---
-
 function Admin({ user }) {
   const [linkRequests, setLinkRequests] = useState(null); // null means loading
   const [approvedLinks, setApprovedLinks] = useState(new Set());
   const [dlpViolations, setDlpViolations] = useState(null);
   const [activeTab, setActiveTab] = useState("approvals");
   const [loading, setLoading] = useState(false);
-
   useEffect(() => {
     // Simulate fetch
     setTimeout(() => {
@@ -207,7 +197,6 @@ function Admin({ user }) {
       ]);
     }, 800);
   }, []);
-
   const approveRequest = (id, token) => {
     setLoading(true);
     setTimeout(() => {
@@ -218,7 +207,6 @@ function Admin({ user }) {
       setLoading(false);
     }, 600);
   };
-
   const denyRequest = id => {
     setLoading(true);
     setTimeout(() => {
@@ -228,7 +216,6 @@ function Admin({ user }) {
       setLoading(false);
     }, 600);
   };
-
   const revokeLink = token => {
     setApprovedLinks(prev => {
       const newSet = new Set(prev);
@@ -236,7 +223,6 @@ function Admin({ user }) {
       return newSet;
     });
   };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6">
@@ -312,5 +298,4 @@ function Admin({ user }) {
     </div>
   );
 }
-
 export default Admin;
